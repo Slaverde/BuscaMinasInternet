@@ -7,6 +7,8 @@ import java.io.OutputStreamWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -27,11 +29,15 @@ public class TCPController {
 
     private static final int POOL_SIZE = 5;
 
+    // Tiempo maximo esperando la peticion: evita que un cliente que se conecta y no
+    // envia nada deje ocupado para siempre uno de los hilos del pool.
+    private static final int READ_TIMEOUT_MS = 5000;
+
     private ServicesImpl services;
 
     private ServerSocket serverSocket;
 
-    private boolean running;
+    private volatile boolean running;
 
     private ExecutorService executor;
 
@@ -96,9 +102,12 @@ public class TCPController {
             String thread = Thread.currentThread().getName();
             String client = clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort();
             try (Socket socket = clientSocket;
-                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                 BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()))) {
+                 BufferedReader reader = new BufferedReader(
+                         new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+                 BufferedWriter writer = new BufferedWriter(
+                         new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))) {
 
+                socket.setSoTimeout(READ_TIMEOUT_MS);
                 System.out.println("[" + thread + "] Client connected: " + client);
                 String line = reader.readLine();
                 Response response = new Response();
@@ -128,6 +137,9 @@ public class TCPController {
                 writer.flush();
                 System.out.println("[" + thread + "] " + client + " <- " + response.status
                         + (response.data.containsKey("message") ? " (" + response.data.get("message") + ")" : ""));
+            } catch (SocketTimeoutException e) {
+                System.out.println("[" + thread + "] " + client + " no envio peticion en " + READ_TIMEOUT_MS
+                        + " ms, se libera el hilo");
             } catch (Exception e) {
                 System.out.println("[" + thread + "] Error with client " + client + ": " + e.getMessage());
             }
