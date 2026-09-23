@@ -40,6 +40,11 @@ subprojects{
         implementation 'com.google.code.gson:gson:2.10.1'
     }
 
+    // Bytecode compatible con Java 17 para que el cliente corra en PCs con un JDK/JRE mas viejo
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 17
+    }
+
     jar {
         manifest {
             attributes(

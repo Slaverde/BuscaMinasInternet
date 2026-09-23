@@ -8,9 +8,13 @@ import co.icesi.buscaminas.client.dtos.Response;
 
 /**
  * Cliente interactivo por consola del Buscaminas distribuido.
- * Uso: java co.icesi.buscaminas.client.MainClient [host] [puerto]   (por defecto localhost 12345)
+ * Uso: java co.icesi.buscaminas.client.MainClient [host] [puerto]
+ * Si no se pasan argumentos, se piden por consola (Enter = localhost / 12345).
  */
 public class MainClient {
+
+    private static final String DEFAULT_HOST = "localhost";
+    private static final int DEFAULT_PORT = 12345;
 
     private final BuscaminasTCPClient client;
     private final Scanner scanner;
@@ -21,23 +25,70 @@ public class MainClient {
     }
 
     public static void main(String[] args) {
-        String host = args.length > 0 ? args[0] : "localhost";
-        int port = 12345;
+        Scanner scanner = new Scanner(System.in);
+        String host = args.length > 0 ? args[0] : null;
+        Integer port = null;
         if (args.length > 1) {
             try {
                 port = Integer.parseInt(args[1]);
             } catch (NumberFormatException e) {
-                System.out.println("Puerto invalido '" + args[1] + "', se usa " + port);
+                System.out.println("Puerto invalido '" + args[1] + "'");
             }
         }
-        System.out.println("Servidor: " + host + ":" + port);
-        new MainClient(new BuscaminasTCPClient(host, port), new Scanner(System.in)).run();
+        BuscaminasTCPClient client = connect(scanner, host, port);
+        new MainClient(client, scanner).run();
+    }
+
+    /**
+     * Pide IP y puerto (si no llegaron por argumentos) y verifica que el servidor
+     * responda con un GET_BOARD antes de mostrar el menu. Si falla, vuelve a preguntar.
+     */
+    private static BuscaminasTCPClient connect(Scanner scanner, String host, Integer port) {
+        while (true) {
+            if (host == null) {
+                String line = readLine(scanner, "IP del servidor (Enter = " + DEFAULT_HOST + "): ");
+                host = line.isEmpty() ? DEFAULT_HOST : line;
+            }
+            while (port == null) {
+                String line = readLine(scanner, "Puerto (Enter = " + DEFAULT_PORT + "): ");
+                try {
+                    port = line.isEmpty() ? DEFAULT_PORT : Integer.parseInt(line);
+                } catch (NumberFormatException e) {
+                    System.out.println("Ingrese un numero entero.");
+                }
+            }
+            BuscaminasTCPClient client = new BuscaminasTCPClient(host, port);
+            System.out.println("Conectando a " + host + ":" + port + "...");
+            try {
+                client.send(new Request("GET_BOARD"));
+                System.out.println(BoardRenderer.GREEN + "Conectado al servidor " + host + ":" + port + BoardRenderer.RESET);
+                return client;
+            } catch (IOException e) {
+                System.out.println(BoardRenderer.RED + "No se pudo conectar a " + host + ":" + port
+                        + " -> " + e.getMessage() + BoardRenderer.RESET);
+                System.out.println("Verifique que el servidor este encendido, la IP y el puerto, y que esten en la misma red.");
+                host = null;
+                port = null;
+            }
+        }
+    }
+
+    private static String readLine(Scanner scanner, String prompt) {
+        System.out.print(prompt);
+        if (!scanner.hasNextLine()) {
+            System.out.println();
+            System.exit(0);
+        }
+        return scanner.nextLine().trim();
     }
 
     public void run() {
-        System.out.print("Tu nombre de jugador (Enter para usar tu IP): ");
-        if (scanner.hasNextLine()) {
-            client.setPlayer(scanner.nextLine().trim());
+        client.setPlayer(readLine(scanner, "Tu nombre de jugador (Enter para usar tu IP): "));
+        try {
+            System.out.println("Tablero actual del servidor:");
+            show(client.send(new Request("GET_BOARD")));
+        } catch (IOException e) {
+            System.out.println(BoardRenderer.RED + "No se pudo obtener el tablero: " + e.getMessage() + BoardRenderer.RESET);
         }
         while (true) {
             printMenu();

@@ -25,7 +25,8 @@ Servidor (puerto por defecto 12345; escucha en `0.0.0.0`):
 ./gradlew :server:run --args="12345"
 ```
 
-Cliente (en otra terminal; host y puerto opcionales):
+Cliente (en otra terminal). Si no se pasan argumentos, pide la IP y el puerto
+(Enter = `localhost` / `12345`), verifica la conexión y luego pide el nombre del jugador:
 
 ```bash
 ./gradlew :client:run -q --console=plain
@@ -35,6 +36,14 @@ Cliente (en otra terminal; host y puerto opcionales):
 Otra opción es generar los ejecutables con `./gradlew installDist` y lanzar
 `server/build/install/server/bin/server` y `client/build/install/client/bin/client`
 (`.bat` en Windows).
+
+### Jugar desde otro computador
+
+1. En el PC del servidor, use la IP del Wi-Fi/Ethernet que imprime el servidor al arrancar
+   y permita Java en el Firewall de Windows (redes privadas).
+2. Genere el cliente empaquetado con `./gradlew :client:distZip` y comparta
+   `client/build/distributions/client.zip` (requiere Java 17+ en el otro PC).
+3. En el otro PC: descomprimir y ejecutar `bin/client.bat` (o `bin/client`), escribir la IP del servidor.
 
 Para la prueba multiusuario, abra dos o más terminales con el cliente contra el mismo servidor.
 La bitácora del servidor indica qué hilo del pool (`pool-1-thread-N`) atendió cada petición.
