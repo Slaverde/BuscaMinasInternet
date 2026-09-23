@@ -34,12 +34,16 @@ public class BoardGame {
                 board[i][j] = new Cell(isMine,0);
             }
         }
-        for (int i = 0; i < mines; i++) {
+        // Se repite hasta colocar exactamente "mines" minas: si dos caen en la misma
+        // celda no se cuentan dos veces (antes la partida quedaba con menos minas)
+        while (mi < mines) {
             int k =rd.nextInt(n);
             int l = rd.nextInt(m);
             Cell cell = board[k][l];
-            mi += cell.isLandMine()?0:1;
-            cell.setLandMine(true);
+            if (!cell.isLandMine()) {
+                cell.setLandMine(true);
+                mi++;
+            }
         }
         for (int i = 0; i <n; i++) {
             for (int j = 0; j < m; j++) {
