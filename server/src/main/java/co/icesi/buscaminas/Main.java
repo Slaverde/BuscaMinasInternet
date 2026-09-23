@@ -10,12 +10,22 @@ public class Main {
 
     public static void main(String[] args)
     {
+        // Uso: java co.icesi.buscaminas.Main [puerto]   (por defecto 12345)
+        int port = TCPController.DEFAULT_PORT;
+        if (args.length > 0) {
+            try {
+                port = Integer.parseInt(args[0]);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid port '" + args[0] + "', using " + port);
+            }
+        }
+
         ServicesImpl serv = new ServicesImpl();
         new Thread(() -> apply(serv.getGame())).start();
         // TCPController controller = new TCPController(serv);
         // controller.startService();
 
-        TCPController iceController = new TCPController(serv);
+        TCPController iceController = new TCPController(serv, port);
         iceController.startService();
     }
     public static void apply(BoardGame bg) {
