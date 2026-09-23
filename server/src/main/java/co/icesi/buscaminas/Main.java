@@ -1,5 +1,10 @@
 package co.icesi.buscaminas;
 
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.Collections;
 import java.util.Scanner;
 
 import co.icesi.buscaminas.controllers.TCPController;
@@ -26,7 +31,33 @@ public class Main {
         // controller.startService();
 
         TCPController iceController = new TCPController(serv, port);
+        printLanAddresses(port);
         iceController.startService();
+    }
+
+    // Basado en obtenerIPLocal() del Servidor original: muestra a que IP deben
+    // conectarse los companeros del salon. Se listan todas las interfaces activas
+    // porque en Windows la primera suele ser un adaptador virtual (WSL, VirtualBox).
+    static void printLanAddresses(int port) {
+        System.out.println("Tus companeros pueden conectarse con alguna de estas IPs:");
+        boolean found = false;
+        try {
+            for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (ni.isLoopback() || !ni.isUp()) continue;
+                for (InetAddress addr : Collections.list(ni.getInetAddresses())) {
+                    if (addr instanceof Inet4Address) {
+                        System.out.println("  " + addr.getHostAddress() + "  (" + ni.getDisplayName() + ")"
+                                + "  ->  ./gradlew :client:run --args=\"" + addr.getHostAddress() + " " + port + "\"");
+                        found = true;
+                    }
+                }
+            }
+        } catch (SocketException e) {
+            // si falla, se usa localhost como respaldo
+        }
+        if (!found) {
+            System.out.println("  localhost (no se encontraron interfaces de red activas)");
+        }
     }
     public static void apply(BoardGame bg) {
 

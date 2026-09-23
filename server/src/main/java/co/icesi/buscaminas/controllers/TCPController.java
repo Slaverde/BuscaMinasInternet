@@ -111,13 +111,13 @@ public class TCPController {
                     try {
                         Request rq = gson.fromJson(line, Request.class);
                         if (rq == null || rq.action == null) {
-                            throw new IllegalArgumentException("Request without action");
+                            throw new IllegalArgumentException("Peticion sin accion");
                         }
                         System.out.println("[" + thread + "] " + client + " -> " + rq.action + " " + rq.data);
-                        handle(rq, response);
+                        handle(rq, response, clientSocket.getInetAddress().getHostAddress());
                     } catch (JsonSyntaxException e) {
-                        error(response, "Malformed JSON request");
-                    } catch (IllegalArgumentException e) {
+                        error(response, "JSON mal formado");
+                    } catch (IllegalArgumentException | IllegalStateException e) {
                         error(response, e.getMessage());
                     }
                     json = gson.toJson(response);
@@ -134,8 +134,11 @@ public class TCPController {
             System.out.println("[" + thread + "] Client disconnected: " + client);
         }
 
-        private void handle(Request rq, Response response) {
+        private void handle(Request rq, Response response, String clientIp) {
             Map<String, String> data = rq.data != null ? rq.data : new HashMap<>();
+            // "jugador" es opcional y no forma parte del contrato de la guia; si no llega
+            // se identifica al jugador por su IP, como hacia el Servidor original.
+            String player = playerName(data, clientIp);
             Cell[][] board;
             switch (rq.action) {
                 case "SELECT_CELL":
@@ -147,12 +150,17 @@ public class TCPController {
                         response.data.put("win", resp);
                         response.data.put("gameEnd", resp);
                         if (resp) {
-                            response.data.put("message", "All safe cells revealed, you win!");
+                            services.registerEvent(player + " destapo (" + i + ", " + j + ") y gano la partida");
+                            response.data.put("message", "Todas las celdas seguras quedaron destapadas. Ganaste!");
+                        } else {
+                            services.registerEvent(player + " destapo (" + i + ", " + j + ")");
+                            response.data.put("message", "Ultima jugada: " + services.getLastEvent());
                         }
-                    } catch (IllegalArgumentException e) {
+                    } catch (IllegalArgumentException | IllegalStateException e) {
                         throw e;
                     } catch (RuntimeException e) {
                         // Pisar una mina es un resultado valido del juego, no un error del protocolo
+                        services.registerEvent(player + " piso una mina en (" + i + ", " + j + ")");
                         response.status = "OK";
                         response.data.put("gameEnd", true);
                         response.data.put("win", false);
@@ -164,12 +172,19 @@ public class TCPController {
                 case "MARK_CELL":
                     int mi = intParam(data, "i");
                     int mj = intParam(data, "j");
-                    services.markCell(mi, mj);
+                    board = services.markCell(mi, mj);
+                    services.registerEvent(player + (board[mi][mj].isMarked() ? " marco" : " desmarco")
+                            + " (" + mi + ", " + mj + ")");
                     response.status = "OK";
+                    response.data.put("message", "Ultima jugada: " + services.getLastEvent());
                     board = services.printBoard();
                     response.data.put("board", board);
                     break;
                 case "SOW_ALL":
+                    // Si la partida ya termino (p.ej. el cliente revela tras pisar una mina) no es una rendicion
+                    if (!services.getGame().isGameOver()) {
+                        services.registerEvent(player + " se rindio y revelo el tablero");
+                    }
                     services.showAll(true);
                     board = services.printBoard();
                     response.status = "OK";
@@ -178,6 +193,8 @@ public class TCPController {
                 case "GET_BOARD":
                     board = services.printBoard();
                     response.status = "OK";
+                    response.data.put("message", "Ultima jugada: " + services.getLastEvent()
+                            + (services.getGame().isGameOver() ? " (partida terminada)" : ""));
                     response.data.put("board", board);
                     break;
                 case "INIT_GAME":
@@ -185,24 +202,34 @@ public class TCPController {
                     int m = intParam(data, "m");
                     int mines = intParam(data, "minas");
                     services.initGame(n, m, mines);
+                    services.registerEvent(player + " inicio una partida de " + n + "x" + m + " con " + mines + " minas");
                     board = services.printBoard();
                     response.status = "OK";
                     response.data.put("board", board);
                     break;
                 default:
-                    throw new IllegalArgumentException("Unknown action: " + rq.action);
+                    throw new IllegalArgumentException("Accion desconocida: " + rq.action);
             }
+        }
+
+        private String playerName(Map<String, String> data, String clientIp) {
+            String name = data.get("jugador");
+            if (name == null || name.isBlank()) {
+                return "Jugador en " + clientIp;
+            }
+            name = name.trim();
+            return name.length() > 20 ? name.substring(0, 20) : name;
         }
 
         private int intParam(Map<String, String> data, String key) {
             String value = data.get(key);
             if (value == null) {
-                throw new IllegalArgumentException("Missing parameter '" + key + "'");
+                throw new IllegalArgumentException("Falta el parametro '" + key + "'");
             }
             try {
                 return Integer.parseInt(value.trim());
             } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Parameter '" + key + "' must be an integer");
+                throw new IllegalArgumentException("El parametro '" + key + "' debe ser un numero entero");
             }
         }
 

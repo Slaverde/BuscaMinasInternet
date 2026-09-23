@@ -8,18 +8,23 @@ public class BoardGame {
 
     private int mines;
 
+    // Idea tomada del Servidor original (juegoTerminado): tras ganar, perder o rendirse
+    // no se aceptan mas jugadas hasta que alguien inicie una nueva partida.
+    private boolean gameOver;
+
     public int getMines() {
         return mines;
     }
 
     public synchronized int initGame(int n, int m, int mines){
         if (n <= 0 || m <= 0) {
-            throw new IllegalArgumentException("Board size must be positive");
+            throw new IllegalArgumentException("Las dimensiones del tablero deben ser positivas");
         }
         if (mines < 0 || mines >= n * m) {
-            throw new IllegalArgumentException("Mines must be between 0 and " + (n * m - 1));
+            throw new IllegalArgumentException("Las minas deben estar entre 0 y " + (n * m - 1));
         }
         this.mines = mines;
+        gameOver = false;
         board = new Cell[n][m];
         Random rd = new Random();
         int mi = 0;
@@ -54,6 +59,23 @@ public class BoardGame {
                 board[i][j].setShowAll(show);
             }
         }
+        if (show) {
+            gameOver = true;
+        }
+    }
+
+    public synchronized boolean isGameOver() {
+        return gameOver;
+    }
+
+    private void validateMove(int i, int j) {
+        if(i<0 || i>= board.length || j<0 || j >= board[0].length ){
+            throw new IllegalArgumentException("La celda (" + i + ", " + j + ") esta fuera del tablero de "
+                    + board.length + "x" + board[0].length);
+        }
+        if (gameOver) {
+            throw new IllegalStateException("La partida ya termino. Inicia una nueva partida para seguir jugando");
+        }
     }
 
     private int getMinesAround(int i, int j) {
@@ -85,21 +107,21 @@ public class BoardGame {
         }
     }
     public synchronized boolean selectCell(int i, int j){
-        if(i<0 || i>= board.length || j<0 || j >= board[0].length ){
-            throw new IllegalArgumentException("Cell no valid");
-        }
+        validateMove(i, j);
         Cell cell = board[i][j];
         if(cell.isMarked()){
-            throw new IllegalArgumentException("Cell is marked, unmark it first");
+            throw new IllegalArgumentException("La celda (" + i + ", " + j + ") tiene bandera; desmarcala antes de destaparla");
         }
         if(cell.isLandMine()){
             showAll(true);
-            throw new RuntimeException("Game over");
+            throw new RuntimeException("BOOM! Mina en (" + i + ", " + j + "). Fin del juego");
         }else {
             if (cell.isHide()) {
                 showCells(i,j,true);
             }
-            return validWin();
+            boolean win = validWin();
+            gameOver = win;
+            return win;
         }
     }
 
@@ -114,7 +136,9 @@ public class BoardGame {
     }
 
     private void showCells(int i, int j, boolean deep) {
-        if(i<0 || i>= board.length || j<0 || j >= board[0].length || !board[i][j].isHide()){
+        // Como en revelarCeldas del Servidor original: la cascada no destapa celdas con bandera
+        if(i<0 || i>= board.length || j<0 || j >= board[0].length || !board[i][j].isHide()
+                || board[i][j].isMarked()){
             return;
         }
         if(deep && board[i][j].isHide()){
@@ -139,12 +163,10 @@ public class BoardGame {
     }
 
     public synchronized void markCell(int i, int j) {
-        if(i<0 || i>= board.length || j<0 || j >= board[0].length ){
-            throw new IllegalArgumentException("Cell no valid");
-        }
+        validateMove(i, j);
         Cell cell = board[i][j];
         if(!cell.isHide()){
-            throw new IllegalArgumentException("Cell already revealed, it can't be marked");
+            throw new IllegalArgumentException("La celda (" + i + ", " + j + ") ya esta destapada, no se puede marcar");
         }
         cell.setMarked(!cell.isMarked());
     }

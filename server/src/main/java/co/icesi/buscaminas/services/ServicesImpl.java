@@ -5,6 +5,11 @@ import co.icesi.buscaminas.model.Cell;
 public class ServicesImpl{
     private  BoardGame game;
 
+    // Reemplaza el broadcast del Servidor original: como cada peticion usa su propia
+    // conexion, en vez de empujar el aviso a todos se guarda la ultima jugada y se
+    // devuelve en el "message" de las respuestas para que los demas jugadores la vean.
+    private volatile String lastEvent = "Aun no hay jugadas en esta partida";
+
     public ServicesImpl(){
         game = new BoardGame();
         game.initGame(8, 8, 10);
@@ -30,6 +35,14 @@ public class ServicesImpl{
     public void showAll(boolean show) {
         
         game.showAll(show);
+    }
+
+    public void registerEvent(String event) {
+        lastEvent = event;
+    }
+
+    public String getLastEvent() {
+        return lastEvent;
     }
 
     public Cell[][] printBoard() {

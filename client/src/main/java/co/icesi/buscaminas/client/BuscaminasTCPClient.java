@@ -28,13 +28,22 @@ public class BuscaminasTCPClient {
     private final String host;
     private final int port;
     private final Gson gson = new GsonBuilder().create();
+    private String player;
 
     public BuscaminasTCPClient(String host, int port) {
         this.host = host;
         this.port = port;
     }
 
+    public void setPlayer(String player) {
+        this.player = player;
+    }
+
     public Response send(Request request) throws IOException {
+        // Clave extra "jugador" para que el servidor sepa quien hizo cada jugada
+        if (player != null && !player.isBlank()) {
+            request.data.put("jugador", player);
+        }
         return sendRequest(host, port, request);
     }
 

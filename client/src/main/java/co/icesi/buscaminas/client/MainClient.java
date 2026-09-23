@@ -35,6 +35,10 @@ public class MainClient {
     }
 
     public void run() {
+        System.out.print("Tu nombre de jugador (Enter para usar tu IP): ");
+        if (scanner.hasNextLine()) {
+            client.setPlayer(scanner.nextLine().trim());
+        }
         while (true) {
             printMenu();
             int option = readInt("Seleccione una opcion: ");
