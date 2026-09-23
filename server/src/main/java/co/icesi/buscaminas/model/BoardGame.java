@@ -12,7 +12,13 @@ public class BoardGame {
         return mines;
     }
 
-    public int initGame(int n, int m, int mines){
+    public synchronized int initGame(int n, int m, int mines){
+        if (n <= 0 || m <= 0) {
+            throw new IllegalArgumentException("Board size must be positive");
+        }
+        if (mines < 0 || mines >= n * m) {
+            throw new IllegalArgumentException("Mines must be between 0 and " + (n * m - 1));
+        }
         this.mines = mines;
         board = new Cell[n][m];
         Random rd = new Random();
@@ -42,7 +48,7 @@ public class BoardGame {
         return mi;
     }
 
-    public void showAll(boolean show){
+    public synchronized void showAll(boolean show){
         for (int i = 0; i <board.length; i++) {
             for (int j = 0; j < board[0].length; j++) {
                 board[i][j].setShowAll(show);
@@ -63,7 +69,7 @@ public class BoardGame {
         return mines;
     }
 
-    public void printBoard(){
+    public synchronized void printBoard(){
         System.out.println();
         System.out.print("   ");
         for (int i = 0; i < board[0].length; i++) {
@@ -78,11 +84,14 @@ public class BoardGame {
             System.out.println(" ]");
         }
     }
-    public boolean selectCell(int i, int j){
+    public synchronized boolean selectCell(int i, int j){
         if(i<0 || i>= board.length || j<0 || j >= board[0].length ){
-            throw new RuntimeException("Cell no valid");
+            throw new IllegalArgumentException("Cell no valid");
         }
         Cell cell = board[i][j];
+        if(cell.isMarked()){
+            throw new IllegalArgumentException("Cell is marked, unmark it first");
+        }
         if(cell.isLandMine()){
             showAll(true);
             throw new RuntimeException("Game over");
@@ -125,15 +134,18 @@ public class BoardGame {
         }
     }
 
-    public Cell[][] getBoard() {
+    public synchronized Cell[][] getBoard() {
         return board;
     }
 
-    public void markCell(int i, int j) {
+    public synchronized void markCell(int i, int j) {
         if(i<0 || i>= board.length || j<0 || j >= board[0].length ){
-            throw new RuntimeException("Cell no valid");
+            throw new IllegalArgumentException("Cell no valid");
         }
         Cell cell = board[i][j];
+        if(!cell.isHide()){
+            throw new IllegalArgumentException("Cell already revealed, it can't be marked");
+        }
         cell.setMarked(!cell.isMarked());
     }
 }
