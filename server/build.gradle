@@ -4,7 +4,4 @@ application {
     mainClass = 'co.icesi.buscaminas.Main'
 }
 
-run {
-    // Permite usar la consola local del servidor y pasar el puerto: ./gradlew :server:run --args="12345"
-    standardInput = System.in
-}
+// Puerto opcional: ./gradlew :server:run --args="12345"
